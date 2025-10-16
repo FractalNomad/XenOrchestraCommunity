@@ -1,0 +1,11 @@
+# Minimal XO server config for container runtime
+[http]
+
+[[http.listen]]
+port = 80
+
+[redis]
+uri = "redis://redis:6379/0"
+
+[http.mounts]
+# XO6 preview should be available at /v6 when @xen-orchestra/web is built

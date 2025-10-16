@@ -1,0 +1,38 @@
+services:
+  xo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        XO_REPO: https://github.com/vatesfr/xen-orchestra.git
+        XO_REF: master # Override to build a specific upstream tag (e.g., xo-web-v5.51.0)
+    image: xen-orchestra-community:xo6
+    ports:
+      - "80:80"
+    environment:
+      - NODE_ENV=production
+      # To trust a custom CA for TLS (e.g., SDN controller to hosts), uncomment:
+      # - NODE_EXTRA_CA_CERTS=/home/xo/.config/xo-server/host-ca.pem
+    volumes:
+      - xo_data:/var/lib/xo-server/data
+      - xo_config:/home/xo/.config/xo-server
+      # Mount your pool CA as a PEM to trust host services (optional):
+      # - ./certs/host-ca.pem:/home/xo/.config/xo-server/host-ca.pem:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/xo/docker/scripts/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - xo_redis:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+
+volumes:
+  xo_data:
+  xo_config:
+  xo_redis:

@@ -1,0 +1,6 @@
+1. Get the application URL by running these commands:
+
+  export SERVICE_IP=$(kubectl get svc {{ include "xoc.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+  echo http://$SERVICE_IP/
+
+Or, if using Ingress with a DNS host, open the configured host.

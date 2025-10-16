@@ -1,0 +1,48 @@
+image:
+  repository: ghcr.io/fractalnomad/XenOrchestraCommunity
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+  - host: xen-orchestra.local
+    paths:
+    - path: /
+      pathType: Prefix
+  tls: []
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+persistence:
+  enabled: true
+  size: 5Gi
+  storageClass: ""
+
+env: []
+
+# Redis is required and deployed by this chart
+redis:
+  image: redis:7-alpine
+  port: 6379
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # persistence for Redis data (optional)
+  persistence:
+    enabled: false
+    size: 2Gi
+    storageClass: ""

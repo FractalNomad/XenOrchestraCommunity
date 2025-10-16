@@ -1,0 +1,10 @@
+apiVersion: v2
+name: xen-orchestra-community
+description: Community Xen Orchestra container (XO6 preview built) packaged as a Helm chart
+type: application
+version: 0.1.0
+appVersion: "latest"
+home: https://github.com/OWNER/REPO
+maintainers:
+- name: Community
+  url: https://github.com/OWNER/REPO

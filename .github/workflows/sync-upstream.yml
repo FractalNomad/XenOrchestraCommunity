@@ -1,0 +1,58 @@
+name: Sync upstream XO tag, build & release
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: Upstream tag from vatesfr/xen-orchestra (e.g., xo-web-v5.51.0)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.setvars.outputs.tag }}
+      ref: ${{ steps.findref.outputs.ref }}
+    steps:
+    - name: Set tag
+      id: setvars
+      run: echo "tag=${{ inputs.upstream_tag }}" >> $GITHUB_OUTPUT
+
+    - name: Find commit for upstream tag
+      id: findref
+      run: |
+        git ls-remote --tags https://github.com/vatesfr/xen-orchestra.git "refs/tags/${{ inputs.upstream_tag }}" | awk '{print $1}' > commit.txt
+        if [ ! -s commit.txt ]; then echo "Upstream tag not found" && exit 1; fi
+        REF=$(cat commit.txt)
+        echo "ref=$REF" >> $GITHUB_OUTPUT
+
+    - name: Update chart appVersion
+      uses: mikefarah/yq@v4.44.3
+      with:
+        cmd: yq -i '.appVersion = strenv(TAG)' charts/xen-orchestra-community/Chart.yaml
+      env:
+        TAG: ${{ inputs.upstream_tag }}
+
+    - name: Commit chart version bump
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git add charts/xen-orchestra-community/Chart.yaml
+        git commit -m "chore(chart): appVersion ${{ inputs.upstream_tag }}"
+        git tag ${{ inputs.upstream_tag }}
+        git push origin HEAD --tags
+
+  docker:
+    needs: prepare
+    uses: ./.github/workflows/release-image.yml
+    secrets: inherit
+
+  helm:
+    needs: prepare
+    uses: ./.github/workflows/helm-release.yml
+    secrets: inherit
