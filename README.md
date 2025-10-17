@@ -5,26 +5,139 @@ Unofficial, community-friendly Xen Orchestra container that builds from the upst
 - Source-built during Docker image build
 - XO (classic) served at `/`
 - XO6 preview served at `/v6`
-- Publish to GHCR on tag push (`v*`) via GitHub Actions
+- Publish Docker images to GHCR and Helm charts to GitHub Pages on tag push (`v*`)
+- Ready-to-use Helm chart for Kubernetes deployments
 
 > This project is not affiliated with Vates. Intended for labs/testing. For production, prefer the official XOA appliance.
 
-## Quick start
+## Installation Options
 
-- Build image locally
+### Option 1: Kubernetes (Helm Chart) - Recommended
 
-```sh
+Add the Helm repository:
+```bash
+helm repo add xen-orchestra-community https://fractalnomad.github.io/XenOrchestraCommunity/
+helm repo update
+```
+
+Install with default values:
+```bash
+helm install xo xen-orchestra-community/xen-orchestra-community \
+  --namespace xo --create-namespace
+```
+
+Custom installation with your own values:
+```bash
+helm install xo xen-orchestra-community/xen-orchestra-community \
+  --namespace xo --create-namespace \
+  -f your-values.yaml
+```
+
+**Key Helm chart features:**
+- Includes Redis deployment and service
+- Configurable ingress with TLS support
+- Persistent storage for XO data and config
+- Resource limits and requests
+- Health checks and probes
+- Service account and security contexts
+
+### Option 2: Docker Compose
+
+For local development or single-node deployments:
+
+Build and run locally:
+```bash
 # From repository root
 docker compose -f docker/docker-compose.yml build
-```
-
-- Run
-
-```sh
 docker compose -f docker/docker-compose.yml up -d
-# Open http://localhost/ (XO)
-# Open http://localhost/v6 (XO6 preview)
+
+# Access the application
+# XO (classic): http://localhost/
+# XO6 preview: http://localhost/v6
 ```
+
+Or use the published image:
+```bash
+# Pull from GitHub Container Registry
+docker pull ghcr.io/fractalnomad/xenorchestracommunity:latest
+```
+
+## Helm Chart Configuration
+
+### Quick Start Values
+
+**Basic deployment:**
+```yaml
+# values.yaml
+ingress:
+  enabled: true
+  hosts:
+    - host: xo.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+persistence:
+  enabled: true
+  size: 10Gi
+```
+
+**Production-ready with TLS:**
+```yaml
+# production-values.yaml
+replicaCount: 2
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: xo.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: xo-tls
+      hosts:
+        - xo.example.com
+
+persistence:
+  enabled: true
+  size: 50Gi
+  storageClass: "fast-ssd"
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2
+    memory: 4Gi
+
+redis:
+  persistence:
+    enabled: true
+    size: 5Gi
+```
+
+### Chart Values Reference
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `replicaCount` | Number of XO pods | `1` |
+| `image.repository` | Container image repository | `ghcr.io/fractalnomad/xenorchestracommunity` |
+| `image.tag` | Container image tag | `"latest"` |
+| `persistence.enabled` | Enable persistent storage | `true` |
+| `persistence.size` | Storage size for XO data | `20Gi` |
+| `ingress.enabled` | Enable ingress | `false` |
+| `ingress.hosts` | Ingress hostnames | `[]` |
+| `redis.enabled` | Deploy Redis | `true` |
+| `redis.persistence.enabled` | Redis persistent storage | `true` |
+
+See the full [values.yaml](./charts/xen-orchestra-community/values.yaml) for all configuration options.
+
+## Quick Start Guide
 
 ## How it works
 
@@ -57,34 +170,88 @@ args:
   XO_REF: master # or tags/vX.Y.Z or a commit SHA
 ```
 
-## Publish to GHCR
+## Releases and Versioning
 
-- Push a git tag from default branch:
+This project follows semantic versioning and publishes both Docker images and Helm charts on git tag pushes.
 
-```sh
-git tag v1.0.0
-git push origin v1.0.0
+### Creating a Release
+
+Push a version tag from the main branch:
+```bash
+git checkout main
+git pull
+git tag v1.2.3
+git push origin v1.2.3
 ```
 
-- The workflow pushes these tags (example):
-  - `ghcr.io/<owner>/<repo>:v1.0.0`
-  - `ghcr.io/<owner>/<repo>:1.0`
-  - `ghcr.io/<owner>/<repo>:1`
-  - `ghcr.io/<owner>/<repo>:latest`
+This automatically:
+1. **Builds and publishes Docker image** to GHCR with tags:
+   - `ghcr.io/fractalnomad/xenorchestracommunity:v1.2.3`
+   - `ghcr.io/fractalnomad/xenorchestracommunity:1.2.3`
+   - `ghcr.io/fractalnomad/xenorchestracommunity:1.2`
+   - `ghcr.io/fractalnomad/xenorchestracommunity:1`
+   - `ghcr.io/fractalnomad/xenorchestracommunity:latest`
 
-Pull:
+2. **Updates Helm chart version** automatically to match the tag (e.g., `1.2.3`)
 
-```sh
-docker pull ghcr.io/<owner>/<repo>:v1.0.0
+3. **Publishes Helm chart** to GitHub Pages:
+   - Creates GitHub release with chart package
+   - Updates https://fractalnomad.github.io/XenOrchestraCommunity/index.yaml
+
+4. **Updates documentation** on GitHub Pages with current chart info
+
+### Using Published Releases
+
+**Docker:**
+```bash
+docker pull ghcr.io/fractalnomad/xenorchestracommunity:v1.2.3
 ```
 
-> Ensure repository/package visibility permits pulling from GHCR.
+**Helm:**
+```bash
+helm repo add xen-orchestra-community https://fractalnomad.github.io/XenOrchestraCommunity/
+helm repo update
+helm install xo xen-orchestra-community/xen-orchestra-community --version 1.2.3
+```
+
+> **Note:** Chart versions automatically sync with git tags. No manual Chart.yaml updates needed!
 
 ## Troubleshooting
 
-- Build network hiccups: the Dockerfile increases Yarn HTTP timeouts; re-run build if timeouts occur
-- XO6 not visible: ensure image built after the turbo step; visit `/v6`
-- Permissions: volumes are owned by `xo` user in the container
+### Docker/Build Issues
+- **Build network hiccups:** The Dockerfile increases Yarn HTTP timeouts; re-run build if timeouts occur
+- **XO6 not visible:** Ensure image built after the turbo step; visit `/v6`
+- **Permissions:** Volumes are owned by `xo` user in the container
+
+### Helm Chart Issues
+- **Pod not starting:** Check logs with `kubectl logs -l app.kubernetes.io/name=xen-orchestra-community`
+- **Redis connection:** Ensure Redis service is running: `kubectl get svc -l app=redis`
+- **Storage issues:** Verify PVC creation: `kubectl get pvc`
+- **Ingress not working:** Check ingress controller and DNS: `kubectl get ingress`
+
+### Common Solutions
+```bash
+# Check pod status
+kubectl get pods -n xo
+
+# View logs
+kubectl logs -n xo deployment/xo-xen-orchestra-community
+
+# Debug with shell access
+kubectl exec -n xo -it deployment/xo-xen-orchestra-community -- /bin/bash
+
+# Restart deployment
+kubectl rollout restart -n xo deployment/xo-xen-orchestra-community
+
+# Check all resources
+kubectl get all -n xo
+```
+
+### Performance Tuning
+- **Memory:** Increase `resources.limits.memory` for large environments
+- **CPU:** Adjust `resources.requests.cpu` based on usage
+- **Storage:** Use fast storage classes for better performance
+- **Redis:** Enable Redis persistence for production deployments
 
 ## Acknowledgements
 
