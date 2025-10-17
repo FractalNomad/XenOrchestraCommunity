@@ -1,0 +1,42 @@
+name: Publish Helm chart to GH Pages
+
+on:
+  push:
+    tags:
+    # Run when you push a new version tag
+    - 'v*' # e.g. v1.2.3
+    - '*.*.*' # e.g. 1.2.3
+    # Keep supporting previous chart-specific tags if you use them
+    - 'chart-*'
+  workflow_dispatch:
+
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # needed so chart-releaser can inspect tags/history
+
+    - name: Configure Git for GitHub Actions
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+
+    - name: Install Helm
+      uses: azure/setup-helm@v4
+      with:
+        version: v3.14.4
+
+    - name: Add chart-releaser
+      uses: helm/chart-releaser-action@v1.6.0
+      env:
+        CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        charts_dir: charts
+        skip_existing: true
