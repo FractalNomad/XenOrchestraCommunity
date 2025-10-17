@@ -49,8 +49,8 @@ jobs:
       uses: helm/chart-releaser-action@v1.6.0
       env:
         CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        CR_CHARTS_REPO: https://fractalnomad.github.io/XenOrchestraCommunity
       with:
         charts_dir: charts
         pages_branch: gh-pages
-        charts_repo_url: https://fractalnomad.github.io/XenOrchestraCommunity
         skip_existing: true
