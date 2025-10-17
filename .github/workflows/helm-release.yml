@@ -44,10 +44,10 @@ jobs:
         # Extract version from tag (remove 'v' prefix if present)
         TAG_VERSION="${{ github.ref_name }}"
         CHART_VERSION="${TAG_VERSION#v}"
-        
+
         # Update Chart.yaml version
         sed -i "s/^version: .*/version: ${CHART_VERSION}/" charts/xen-orchestra-community/Chart.yaml
-        
+
         # Show what changed
         echo "Updated chart version to: ${CHART_VERSION}"
         git diff charts/xen-orchestra-community/Chart.yaml
