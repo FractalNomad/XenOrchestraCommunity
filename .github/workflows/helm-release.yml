@@ -51,4 +51,6 @@ jobs:
         CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         charts_dir: charts
+        pages_branch: gh-pages
+        charts_repo_url: https://fractalnomad.github.io/XenOrchestraCommunity
         skip_existing: true
