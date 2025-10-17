@@ -3,7 +3,8 @@ name: Publish Helm chart to GH Pages
 on:
   push:
     tags:
-    - 'chart-*'
+    - 'v*' # e.g. v1.2.3
+    - 'chart-*' # keep compatibility with prior tag scheme
   workflow_dispatch:
 
 
@@ -16,18 +17,35 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # full history for chart-releaser
+
+    - name: Verify tag commit is on main
+      id: verify
+      shell: bash
+      run: |
+        if git branch -r --contains "$GITHUB_SHA" | grep -Eq 'origin/main$'; then
+          echo "on_main=true" >> "$GITHUB_OUTPUT"
+          echo "Tagged commit is on main"
+        else
+          echo "on_main=false" >> "$GITHUB_OUTPUT"
+          echo "Tagged commit is NOT on main; subsequent steps will be skipped"
+        fi
 
     - name: Configure Git for GitHub Actions
+      if: steps.verify.outputs.on_main == 'true'
       run: |
         git config user.name github-actions
         git config user.email github-actions@github.com
 
     - name: Install Helm
+      if: steps.verify.outputs.on_main == 'true'
       uses: azure/setup-helm@v4
       with:
         version: v3.14.4
 
     - name: Add chart-releaser
+      if: steps.verify.outputs.on_main == 'true'
       uses: helm/chart-releaser-action@v1.6.0
       env:
         CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
