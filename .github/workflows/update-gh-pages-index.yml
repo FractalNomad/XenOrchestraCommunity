@@ -1,0 +1,73 @@
+name: Update GH Pages index
+
+on:
+  workflow_run:
+    workflows: [ "Publish Helm chart to GH Pages" ]
+    types: [ completed ]
+  workflow_dispatch:
+
+
+permissions:
+  contents: write
+
+jobs:
+  update-index:
+    name: Write index.html to gh-pages
+    runs-on: ubuntu-latest
+    concurrency:
+      group: gh-pages-index
+      cancel-in-progress: false
+    steps:
+    - name: Checkout gh-pages
+      uses: actions/checkout@v4
+      with:
+        ref: gh-pages
+        fetch-depth: 0
+    - name: Checkout main into ./src
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        path: src
+
+    - name: Copy static index.html
+      shell: bash
+      run: |
+        set -euo pipefail
+        cp -f src/docs/index.html index.html
+        OWNER="${{ github.repository_owner }}"
+        REPO_FULL="${{ github.repository }}"   # owner/repo
+        REPO_NAME="${REPO_FULL##*/}"
+        BASE_URL="https://${OWNER}.github.io/${REPO_NAME}"
+        # Try to read chart info
+        CHART_PATH="src/charts/xen-orchestra-community/Chart.yaml"
+        if [ -f "$CHART_PATH" ]; then
+          CHART_NAME=$(grep '^name:' "$CHART_PATH" | awk '{print $2}') || CHART_NAME="xen-orchestra-community"
+          CHART_VERSION=$(grep '^version:' "$CHART_PATH" | awk '{print $2}') || CHART_VERSION=""
+        else
+          CHART_NAME="xen-orchestra-community"
+          CHART_VERSION=""
+        fi
+        VALUES_URL="https://raw.githubusercontent.com/${OWNER}/${REPO_NAME}/main/charts/${CHART_NAME}/values.yaml"
+        # Replace placeholders
+        sed -i "s|{{REPO_NAME}}|${REPO_NAME}|g" index.html
+        sed -i "s|{{BASE_URL}}|${BASE_URL}|g" index.html
+        sed -i "s|{{CHART_NAME}}|${CHART_NAME}|g" index.html
+        sed -i "s|{{CHART_VERSION}}|${CHART_VERSION}|g" index.html
+        sed -i "s|{{VALUES_URL}}|${VALUES_URL}|g" index.html
+        touch .nojekyll
+
+    - name: Commit and push changes
+      shell: bash
+      run: |
+        set -euo pipefail
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        # Rebase to get latest content in case other workflows pushed (e.g., chart-releaser)
+        git pull --rebase origin gh-pages || true
+        git add index.html .nojekyll
+        if git diff --cached --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "docs(pages): update index.html for ${{ github.ref_name }}"
+          git push
+        fi

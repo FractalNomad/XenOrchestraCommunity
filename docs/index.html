@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{REPO_NAME}} Helm Repository</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif; margin: 2rem auto; max-width: 900px; padding: 0 1rem; line-height: 1.6; }
+      pre { background: rgba(127,127,127,.1); padding: .75rem; border-radius: 8px; overflow-x: auto; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+      h1, h2 { line-height: 1.25; }
+      a { text-decoration: none; }
+    </style>
+  </head>
+  <body>
+  <h1>{{CHART_NAME}} Helm chart</h1>
+  <p>This GitHub Pages site hosts the Helm chart repository for <strong>{{REPO_NAME}}</strong>.</p>
+
+    <h2>Repository URL</h2>
+    <p>
+      Index file: <a href="{{BASE_URL}}/index.yaml"><code>{{BASE_URL}}/index.yaml</code></a>
+    </p>
+
+    <h2>Quickstart</h2>
+    <p>Add the repo and install the chart:</p>
+    <pre><code>helm repo add xen-orchestra-community {{BASE_URL}}/
+helm repo update
+helm search repo xen-orchestra-community
+helm install xo xen-orchestra-community/{{CHART_NAME}} \
+  --namespace xo --create-namespace</code></pre>
+
+    <h2>Values</h2>
+    <p>Review default values in the chart's <code>values.yaml</code> and override as needed, for example:</p>
+    <pre><code>helm install xo xen-orchestra-community/{{CHART_NAME}} \
+  -f your-values.yaml</code></pre>
+
+    <h2>Troubleshooting</h2>
+    <ul>
+      <li>Ensure your Helm repo is up to date: <code>helm repo update</code></li>
+      <li>Verify the index exists: <a href="{{BASE_URL}}/index.yaml"><code>index.yaml</code></a></li>
+    </ul>
+
+    <hr />
+    <p style="opacity:.7">This page is generated from <code>docs/index.html</code> on main. Chart: <code>{{CHART_NAME}}</code>, version <code>{{CHART_VERSION}}</code>. Default values: <a href="{{VALUES_URL}}"><code>values.yaml</code></a>.</p>
+  </body>
+  </html>
