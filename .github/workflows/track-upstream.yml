@@ -1,0 +1,134 @@
+name: Track Upstream XO Tags
+
+on:
+  schedule:
+    # Check for new upstream tags every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_tag:
+        description: 'Force build specific upstream tag (e.g., xo-web-v5.51.0)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  check-upstream:
+    name: Check for new upstream tags
+    runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.check.outputs.new_tag }}
+      force_tag: ${{ steps.check.outputs.force_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for new upstream tags
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          
+          # Handle manual force tag
+          if [[ -n "${{ inputs.force_tag }}" ]]; then
+            echo "force_tag=${{ inputs.force_tag }}" >> "$GITHUB_OUTPUT"
+            echo "Using force tag: ${{ inputs.force_tag }}"
+            exit 0
+          fi
+          
+          # Fetch upstream tags
+          echo "Fetching upstream xen-orchestra tags..."
+          git ls-remote --tags https://github.com/vatesfr/xen-orchestra.git | \
+            grep 'xo-web-v' | \
+            sed 's/.*refs\/tags\///' | \
+            sort -V > upstream_tags.txt
+          
+          # Get the latest upstream tag
+          LATEST_UPSTREAM=$(tail -1 upstream_tags.txt)
+          echo "Latest upstream tag: $LATEST_UPSTREAM"
+          
+          # Check if we've already built this tag
+          LAST_BUILT_FILE=".github/last_built_upstream_tag"
+          if [[ -f "$LAST_BUILT_FILE" ]]; then
+            LAST_BUILT=$(cat "$LAST_BUILT_FILE")
+            echo "Last built tag: $LAST_BUILT"
+            
+            if [[ "$LATEST_UPSTREAM" == "$LAST_BUILT" ]]; then
+              echo "No new upstream tags"
+              exit 0
+            fi
+          fi
+          
+          # New tag found
+          echo "new_tag=$LATEST_UPSTREAM" >> "$GITHUB_OUTPUT"
+          echo "New upstream tag detected: $LATEST_UPSTREAM"
+
+  trigger-build:
+    name: Trigger build for upstream tag
+    runs-on: ubuntu-latest
+    needs: check-upstream
+    if: needs.check-upstream.outputs.new_tag != '' || needs.check-upstream.outputs.force_tag != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set build parameters
+        id: params
+        run: |
+          if [[ -n "${{ needs.check-upstream.outputs.force_tag }}" ]]; then
+            XO_TAG="${{ needs.check-upstream.outputs.force_tag }}"
+            OUR_TAG="upstream-$(echo "$XO_TAG" | sed 's/xo-web-v//')"
+          else
+            XO_TAG="${{ needs.check-upstream.outputs.new_tag }}"
+            OUR_TAG="upstream-$(echo "$XO_TAG" | sed 's/xo-web-v//')"
+          fi
+          
+          echo "xo_tag=$XO_TAG" >> "$GITHUB_OUTPUT"
+          echo "our_tag=$OUR_TAG" >> "$GITHUB_OUTPUT"
+          
+          echo "Will build:"
+          echo "  Upstream XO tag: $XO_TAG"
+          echo "  Our release tag: $OUR_TAG"
+
+      - name: Update chart for upstream build
+        run: |
+          # Update Chart.yaml with upstream version info
+          XO_VERSION=$(echo "${{ steps.params.outputs.xo_tag }}" | sed 's/xo-web-v//')
+          sed -i "s/^version: .*/version: ${{ steps.params.outputs.our_tag }}/" charts/xen-orchestra-community/Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"$XO_VERSION\"/" charts/xen-orchestra-community/Chart.yaml
+          
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add charts/xen-orchestra-community/Chart.yaml
+          git commit -m "build: sync with upstream ${{ steps.params.outputs.xo_tag }}"
+
+      - name: Create release tag
+        run: |
+          git tag "${{ steps.params.outputs.our_tag }}"
+          git push origin "${{ steps.params.outputs.our_tag }}"
+
+      - name: Update last built tracker
+        run: |
+          echo "${{ steps.params.outputs.xo_tag }}" > .github/last_built_upstream_tag
+          git add .github/last_built_upstream_tag
+          git commit -m "track: built upstream ${{ steps.params.outputs.xo_tag }}" || true
+          git push origin main || true
+
+      - name: Trigger image build with upstream tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'release-image.yml',
+              ref: '${{ steps.params.outputs.our_tag }}',
+              inputs: {
+                xo_ref: '${{ steps.params.outputs.xo_tag }}'
+              }
+            });
+            console.log('Triggered image build with upstream tag: ${{ steps.params.outputs.xo_tag }}');

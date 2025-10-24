@@ -5,6 +5,12 @@ on:
     tags:
     - 'v*' # run only for version tags like v1.2.3
   workflow_dispatch:
+    inputs:
+      xo_ref:
+        description: 'Upstream xen-orchestra ref (tag/branch/commit)'
+        required: false
+        default: 'master'
+        type: string
   workflow_call:
 
 
@@ -14,7 +20,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  XO_REF: master
+  XO_REF: ${{ inputs.xo_ref || 'master' }}
 
 jobs:
   build-and-push:
