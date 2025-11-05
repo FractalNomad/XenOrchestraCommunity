@@ -137,6 +137,12 @@ redis:
 
 See the full [values.yaml](./charts/xen-orchestra-community/values.yaml) for all configuration options.
 
+Note on Helm chart ports and annotations:
+
+- By default, the pod listens on port 8080 and the Service exposes port 80 mapped to the container's 8080.
+- Override the container port with `containerPort` in values.
+- Add pod-level annotations (e.g., Linkerd) via `podAnnotations` in values.
+
 ## Quick Start Guide
 
 ## How it works
@@ -144,17 +150,19 @@ See the full [values.yaml](./charts/xen-orchestra-community/values.yaml) for all
 - Multi-stage Dockerfile clones the upstream monorepo and installs workspaces with Yarn (Corepack)
 - Runs the monorepo build and then explicitly builds XO6:
   - `yarn run turbo run build --filter @xen-orchestra/web`
-- Starts `@xen-orchestra/xo-server` (port 80 by default)
+- Starts `@xen-orchestra/xo-server` (container listens on 8080 by default; Docker maps host 80 -> 8080; Helm Service exposes 80 -> 8080)
 
 Key files:
 - `docker/Dockerfile` — build and runtime image definition
 - `docker/docker-compose.yml` — local build/run
-- `docker/config.toml` — minimal xo-server config (HTTP on :80)
+- `docker/config.toml` — minimal xo-server config (HTTP on :8080)
 - `.github/workflows/release-image.yml` — builds and pushes image to GHCR on tag push
 
 ## Configuration
 
-- Port: defaults to 80 (see `docker/config.toml`)
+- Port:
+  - Docker: container listens on 8080; Compose maps host 80 -> 8080 (see `docker/config.toml` and `docker/docker-compose.yml`)
+  - Helm: container defaults to 8080; Service exposes 80 -> 8080
 - Data: persisted in `xo_data` compose volume (`/var/lib/xo-server/data`)
 - Config: persisted in `xo_config` compose volume (`/home/xo/.config/xo-server`)
 - Redis: required. The compose file includes a `redis` service by default. In Kubernetes, the Helm chart deploys a Redis service and XO is configured to use it.

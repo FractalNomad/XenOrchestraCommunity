@@ -6,7 +6,7 @@ data:
   config.toml: |
     [http]
     [[http.listen]]
-    port = 80
+    port = {{ .Values.containerPort }}
 
     [redis]
     uri = "redis://{{ include "xoc.fullname" . }}-redis:{{ .Values.redis.port }}/0"

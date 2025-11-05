@@ -3,6 +3,9 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
+# Port the application container listens on
+containerPort: 8080
+
 service:
   type: ClusterIP
   port: 80
@@ -25,6 +28,9 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# Optional annotations to add to the pod template
+podAnnotations: {}
 
 persistence:
   enabled: true
