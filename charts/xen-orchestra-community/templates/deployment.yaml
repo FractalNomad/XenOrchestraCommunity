@@ -38,7 +38,8 @@ spec:
             - name: data
               mountPath: /var/lib/xo-server/data
             - name: config
-              mountPath: /home/xo/.config/xo-server
+              mountPath: /home/xo/.config/xo-server/config.toml
+              subPath: config.toml
               readOnly: true
       volumes:
         - name: data
