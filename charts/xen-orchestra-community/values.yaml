@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/fractalnomad/xenorchestracommunity
-  tag: latest
+  tag: ""  # defaults to Chart.Version if empty
   pullPolicy: IfNotPresent
 
 # Port the application container listens on
