@@ -39,6 +39,9 @@ RUN yarn build || true \
  && (yarn dlx turbo --version || yarn global add turbo) \
  && yarn run turbo run build --filter @xen-orchestra/web
 
+# Ensure all @xen-orchestra/* workspaces are built and linked
+RUN yarn workspaces foreach --all --topological-dev run build || true
+
 # 2) Runtime stage
 FROM node:20-bullseye-slim AS runtime
 

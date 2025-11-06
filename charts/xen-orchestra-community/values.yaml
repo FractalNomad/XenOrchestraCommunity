@@ -29,7 +29,6 @@ tolerations: []
 
 affinity: {}
 
-# Optional annotations to add to the pod template
 podAnnotations: {}
 
 persistence:
@@ -39,7 +38,6 @@ persistence:
 
 env: []
 
-# Redis is required and deployed by this chart
 redis:
   image: redis:7-alpine
   port: 6379
@@ -47,7 +45,6 @@ redis:
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  # persistence for Redis data (optional)
   persistence:
     enabled: false
     size: 2Gi
