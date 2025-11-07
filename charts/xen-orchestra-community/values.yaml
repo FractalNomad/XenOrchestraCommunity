@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/fractalnomad/xenorchestracommunity
-  tag: ""  # defaults to Chart.Version if empty
+  tag: "" # defaults to Chart.Version if empty
   pullPolicy: IfNotPresent
 
 # Port the application container listens on
@@ -37,6 +37,34 @@ persistence:
   storageClass: ""
 
 env: []
+
+# XO server configuration options (rendered into config.toml)
+http:
+  # Optional hostname to bind (maps to [http].hostname)
+  hostname: ""
+  # If true, XO will redirect HTTP requests to HTTPS (requires HTTPS config below)
+  redirectToHttps: false
+  https:
+    enabled: false
+    # Provide paths to TLS materials mounted into the pod (e.g., via a Secret)
+    cert: ""
+    key: ""
+    # Enable ACME autocert (Let's Encrypt) via built-in XO support
+    autoCert: false
+    acme:
+      enabled: false
+      domain: ""
+      email: ""
+      ca: "" # optional custom ACME CA URL
+
+logs:
+  syslog:
+    enabled: false
+    target: "" # e.g., "udp://syslog.example.com:514"
+
+tasks:
+  # Persist task logs in the store; set false to mitigate task store issues
+  persistLogs: true
 
 redis:
   image: redis:7-alpine

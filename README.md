@@ -119,6 +119,35 @@ redis:
   persistence:
     enabled: true
     size: 5Gi
+
+### XO configuration via values.yaml
+
+You can configure XO server options that are rendered into `config.toml` by the chart:
+
+```yaml
+http:
+  hostname: "xo.example.com"   # optional bind hostname
+  redirectToHttps: true         # enable 80->443 redirect when HTTPS is enabled
+  https:
+    enabled: true
+    cert: "/etc/ssl/xo/tls.crt"  # mount a Secret at this path
+    key: "/etc/ssl/xo/tls.key"
+    autoCert: false
+    acme:
+      enabled: false
+      domain: "xo.example.com"
+      email: "admin@example.com"
+
+logs:
+  syslog:
+    enabled: true
+    target: "udp://syslog.example.com:514"
+
+tasks:
+  persistLogs: false  # set false to mitigate task log store errors in some upstream builds
+```
+
+See `charts/xen-orchestra-community/values.yaml` for all options.
 ```
 
 ### Chart Values Reference

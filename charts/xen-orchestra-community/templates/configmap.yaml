@@ -7,6 +7,48 @@ data:
     [http]
     [[http.listen]]
     port = {{ .Values.containerPort }}
+    {{- if .Values.http.hostname }}
+    hostname = '{{ .Values.http.hostname }}'
+    {{- end }}
+    {{- if and .Values.http.https.enabled .Values.http.redirectToHttps }}
+    redirectToHttps = true
+    {{- end }}
+
+    {{- if .Values.http.https.enabled }}
+    {{- if .Values.http.https.cert }}
+    cert = '{{ .Values.http.https.cert }}'
+    {{- end }}
+    {{- if .Values.http.https.key }}
+    key = '{{ .Values.http.https.key }}'
+    {{- end }}
+    {{- if .Values.http.https.autoCert }}
+    autoCert = true
+    {{- end }}
+    {{- if .Values.http.https.acme.enabled }}
+    [[http.listen]]
+    port = 443
+    redirectToHttps = true
+    {{- if .Values.http.https.acme.domain }}
+    acmeDomain = '{{ .Values.http.https.acme.domain }}'
+    {{- end }}
+    {{- if .Values.http.https.acme.email }}
+    acmeEmail = '{{ .Values.http.https.acme.email }}'
+    {{- end }}
+    {{- if .Values.http.https.acme.ca }}
+    acmeCa = '{{ .Values.http.https.acme.ca }}'
+    {{- end }}
+    {{- end }}
+    {{- end }}
 
     [redis]
     uri = "redis://{{ include "xoc.fullname" . }}-redis:{{ .Values.redis.port }}/0"
+
+    {{- if .Values.logs.syslog.enabled }}
+    [logs.transport.syslog]
+    target = '{{ .Values.logs.syslog.target }}'
+    {{- end }}
+
+    {{- if not .Values.tasks.persistLogs }}
+    [tasks]
+    persistLogs = false
+    {{- end }}
