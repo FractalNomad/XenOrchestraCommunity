@@ -77,6 +77,31 @@ jobs:
           org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           org.opencontainers.image.revision=${{ github.sha }}
 
+    - name: Select Node base and Yarn mode
+      id: nodebase
+      if: steps.verify.outputs.on_main == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        XO_REF='${{ env.XO_REF }}'
+        # Defaults for modern upstream
+        BUILDER="node:22-trixie"
+        RUNTIME="node:22-trixie-slim"
+        YARN_SETUP="modern"
+        NEED_PY2="false"
+        # Legacy compatibility for older xo-web tags (node-sass@4.x, old node-gyp)
+        # Treat any v5.x xo-web tag as legacy
+        if [[ "$XO_REF" =~ ^xo-web-v5\..* ]]; then
+          BUILDER="node:12-buster"
+          RUNTIME="node:12-buster-slim"
+          YARN_SETUP="classic"
+          NEED_PY2="true"
+        fi
+        echo "builder=$BUILDER" >> "$GITHUB_OUTPUT"
+        echo "runtime=$RUNTIME" >> "$GITHUB_OUTPUT"
+        echo "yarn_setup=$YARN_SETUP" >> "$GITHUB_OUTPUT"
+        echo "need_py2=$NEED_PY2" >> "$GITHUB_OUTPUT"
+
     - name: Build and push
       uses: docker/build-push-action@v6
       if: steps.verify.outputs.on_main == 'true'
@@ -87,5 +112,9 @@ jobs:
         platforms: linux/amd64
         build-args: |
           XO_REF=${{ env.XO_REF }}
+          NODE_IMAGE_BUILDER=${{ steps.nodebase.outputs.builder }}
+          NODE_IMAGE_RUNTIME=${{ steps.nodebase.outputs.runtime }}
+          YARN_SETUP=${{ steps.nodebase.outputs.yarn_setup }}
+          NEED_PY2=${{ steps.nodebase.outputs.need_py2 }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}

@@ -2,23 +2,50 @@
 # Multi-stage build to keep runtime image small
 
 # 1) Builder stage: fetch sources and build
-FROM node:20-bullseye AS builder
+# Global ARG declarations (must precede any FROM to be usable in FROM)
+# Allow selecting Node images for builder/runtime (legacy compatibility)
+ARG NODE_IMAGE_BUILDER=node:22-trixie
+ARG NODE_IMAGE_RUNTIME=node:22-trixie-slim
+FROM ${NODE_IMAGE_BUILDER} AS builder
 
 # Build args to allow pinning specific xen-orchestra ref
 ARG XO_REPO=https://github.com/vatesfr/xen-orchestra.git
 ARG XO_REF=master
+ARG YARN_SETUP=modern  # modern | classic
+ARG NEED_PY2=false     # true to install python2 for legacy node-gyp
 
 ENV DEBIAN_FRONTEND=noninteractive \
     COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     NODE_OPTIONS=--max_old_space_size=4096
 
-# Install build deps
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git python3 build-essential ca-certificates curl jq \
-    && rm -rf /var/lib/apt/lists/*
+# Install build deps (conditionally add python2 for legacy)
+RUN set -eux; \
+        # Workaround for EOL Debian buster: switch to archive mirrors if detected
+        if grep -Eqs 'VERSION_CODENAME=buster' /etc/os-release || grep -qs 'buster' /etc/apt/sources.list; then \
+            sed -i -e 's|deb.debian.org|archive.debian.org|g' \
+                         -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' /etc/apt/sources.list || true; \
+            if ls /etc/apt/sources.list.d/*.list >/dev/null 2>&1; then \
+                sed -i -e 's|deb.debian.org|archive.debian.org|g' \
+                             -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' /etc/apt/sources.list.d/*.list || true; \
+            fi; \
+            echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until; \
+        fi; \
+        apt-get update && apt-get install -y --no-install-recommends \
+            git build-essential python3-minimal ca-certificates curl jq libpng-dev pkg-config fuse \
+            && if [ "$NEED_PY2" = "true" ]; then apt-get install -y python; fi \
+            && rm -rf /var/lib/apt/lists/*
 
-# Enable corepack (yarn) and turbo
-RUN corepack enable && corepack prepare yarn@stable --activate
+# Yarn setup: use Yarn classic for older upstream, otherwise latest via Corepack
+# Avoid EEXIST if yarn already preinstalled in base image
+RUN if [ "$YARN_SETUP" = "classic" ]; then \
+            if command -v yarn >/dev/null 2>&1; then \
+                yarn --version; \
+            else \
+                npm i -g yarn@1.22.22; \
+            fi; \
+        else \
+            corepack enable && corepack prepare yarn@stable --activate; \
+        fi
 
 # Fetch sources
 WORKDIR /build
@@ -42,15 +69,35 @@ RUN yarn build || true \
 # Ensure all @xen-orchestra/* workspaces are built and linked
 RUN yarn workspaces foreach --all --topological-dev run build || true
 
+# Symlink all plugins into xo-server/node_modules (except excluded ones)
+RUN find /build/packages/ -maxdepth 1 -mindepth 1 \
+    -not -name "xo-server" -not -name "xo-web" -not -name "xo-server-cloud" \
+    -not -name "xo-server-test" -not -name "xo-server-test-plugin" \
+    -exec ln -s {} /build/packages/xo-server/node_modules \;
+
 # 2) Runtime stage
-FROM node:20-bullseye-slim AS runtime
+# Use matching Node major; ARG declared globally above
+FROM ${NODE_IMAGE_RUNTIME} AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Runtime deps: openssl for TLS, tini for init, redis client optional
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    dumb-init openssl ca-certificates curl libfuse2 \
-    && rm -rf /var/lib/apt/lists/*
+RUN set -eux; \
+        # Workaround for EOL Debian buster: switch to archive mirrors if detected
+        if grep -Eqs 'VERSION_CODENAME=buster' /etc/os-release || grep -qs 'buster' /etc/apt/sources.list; then \
+            sed -i -e 's|deb.debian.org|archive.debian.org|g' \
+                         -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' /etc/apt/sources.list || true; \
+            if ls /etc/apt/sources.list.d/*.list >/dev/null 2>&1; then \
+                sed -i -e 's|deb.debian.org|archive.debian.org|g' \
+                             -e 's|security.debian.org/debian-security|archive.debian.org/debian-security|g' /etc/apt/sources.list.d/*.list || true; \
+            fi; \
+            echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until; \
+        fi; \
+        apt-get update && apt-get install -y --no-install-recommends \
+            dumb-init openssl ca-certificates curl \
+            libfuse2t64 libvhdi-utils libxml2 python3-minimal python3-jinja2 \
+            lvm2 nfs-common netbase cifs-utils procps ntfs-3g \
+            && rm -rf /var/lib/apt/lists/*
 
 # Create app user
 RUN useradd -ms /bin/bash xo
@@ -76,4 +123,5 @@ RUN chown xo:xo /home/xo/.config/xo-server/config.toml
 USER xo
 
 # Start xo-server directly from built dist; XO6 preview is served at /v6
+HEALTHCHECK --start-period=1m --interval=30s --timeout=5s --retries=2 CMD /opt/xo/docker/scripts/healthcheck.sh
 CMD ["dumb-init", "node", "/opt/xo/packages/xo-server/dist/cli.mjs"]
