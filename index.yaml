@@ -18,6 +18,21 @@ entries:
     version: 0.1.1
   - apiVersion: v2
     appVersion: 5.51.0a
+    created: "2025-11-07T18:03:02.114807593Z"
+    description: Community Xen Orchestra container (XO6 preview built) packaged as
+      a Helm chart
+    digest: cb37c5fd1a05ea7e0d2694476a7d625a2e5dfe78458102e28c76eabe1c314d53
+    home: https://github.com/fractalnomad/XenOrchestraCommunity
+    maintainers:
+    - name: FractalNomad
+      url: https://github.com/fractalnomad
+    name: xen-orchestra-community
+    type: application
+    urls:
+    - https://github.com/FractalNomad/XenOrchestraCommunity/releases/download/xen-orchestra-community-0.0.13/xen-orchestra-community-0.0.13.tgz
+    version: 0.0.13
+  - apiVersion: v2
+    appVersion: 5.51.0a
     created: "2025-11-07T17:55:18.406255123Z"
     description: Community Xen Orchestra container (XO6 preview built) packaged as
       a Helm chart
@@ -121,4 +136,4 @@ entries:
     urls:
     - https://github.com/FractalNomad/XenOrchestraCommunity/releases/download/xen-orchestra-community-0.0.6/xen-orchestra-community-0.0.6.tgz
     version: 0.0.6
-generated: "2025-11-07T17:55:18.406298845Z"
+generated: "2025-11-07T18:03:02.114850059Z"
