@@ -9,7 +9,7 @@ on:
       xo_ref:
         description: 'Upstream xen-orchestra ref (tag/branch/commit)'
         required: false
-        default: 'xo-web-v5.51.0'
+        default: 'master'
         type: string
   workflow_call:
 
@@ -20,7 +20,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  XO_REF: ${{ inputs.xo_ref || 'xo-web-v5.51.0' }}
+  XO_REF: ${{ inputs.xo_ref || 'master' }}
 
 jobs:
   build-and-push:
