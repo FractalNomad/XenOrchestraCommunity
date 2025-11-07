@@ -1,13 +1,17 @@
-name: Track Upstream XO Tags
+name: Track Upstream CHANGELOG
 
 on:
   schedule:
-    # Check for new upstream tags every 6 hours
+    # Check CHANGELOG every 6 hours
     - cron: '0 */6 * * *'
   workflow_dispatch:
     inputs:
-      force_tag:
-        description: 'Force build specific upstream tag (e.g., xo-web-v5.51.0)'
+      force_build:
+        description: 'Force a build from master regardless of CHANGELOG'
+        required: false
+        type: boolean
+      override_version:
+        description: 'Manually set version to record (e.g. 5.112.1)'
         required: false
         type: string
 
@@ -15,120 +19,115 @@ permissions:
   contents: write
 
 jobs:
-  check-upstream:
-    name: Check for new upstream tags
+  changelog-check:
+    name: Detect new upstream version in CHANGELOG
     runs-on: ubuntu-latest
     outputs:
-      new_tag: ${{ steps.check.outputs.new_tag }}
-      force_tag: ${{ steps.check.outputs.force_tag }}
+      new_version: ${{ steps.scan.outputs.new_version }}
+      recorded_version: ${{ steps.scan.outputs.recorded_version }}
+      effective_version: ${{ steps.scan.outputs.effective_version }}
+      force_build: ${{ steps.scan.outputs.force_build }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Check for new upstream tags
-        id: check
+      - name: Scan upstream CHANGELOG
+        id: scan
         shell: bash
         run: |
           set -euo pipefail
-          
-          # Handle manual force tag
-          if [[ -n "${{ inputs.force_tag }}" ]]; then
-            echo "force_tag=${{ inputs.force_tag }}" >> "$GITHUB_OUTPUT"
-            echo "Using force tag: ${{ inputs.force_tag }}"
+          FORCE_BUILD="${{ inputs.force_build }}"
+          OVERRIDE_VERSION="${{ inputs.override_version }}"
+          LAST_FILE=".github/last_changelog_version"
+
+          if [[ -n "$OVERRIDE_VERSION" ]]; then
+            echo "override provided: $OVERRIDE_VERSION"
+          fi
+
+          # Fetch upstream CHANGELOG (raw)
+          echo "Fetching upstream CHANGELOG.md..."
+          curl -fsSL https://raw.githubusercontent.com/vatesfr/xen-orchestra/master/CHANGELOG.md -o /tmp/CHANGELOG.md
+
+          # Extract top version pattern like: ## **5.112.1** (2025-11-03)
+          TOP_LINE=$(grep -E '^## ' /tmp/CHANGELOG.md | head -n1 || true)
+          if [[ -z "$TOP_LINE" ]]; then
+            echo "No version line found; aborting" >&2
             exit 0
           fi
-          
-          # Fetch upstream tags
-          echo "Fetching upstream xen-orchestra tags..."
-          git ls-remote --tags https://github.com/vatesfr/xen-orchestra.git | \
-            grep 'xo-web-v' | \
-            sed 's/.*refs\/tags\///' | \
-            sort -V > upstream_tags.txt
-          
-          # Get the latest upstream tag
-          LATEST_UPSTREAM=$(tail -1 upstream_tags.txt)
-          echo "Latest upstream tag: $LATEST_UPSTREAM"
-          
-          # Check if we've already built this tag
-          LAST_BUILT_FILE=".github/last_built_upstream_tag"
-          if [[ -f "$LAST_BUILT_FILE" ]]; then
-            LAST_BUILT=$(cat "$LAST_BUILT_FILE")
-            echo "Last built tag: $LAST_BUILT"
-            
-            if [[ "$LATEST_UPSTREAM" == "$LAST_BUILT" ]]; then
-              echo "No new upstream tags"
-              exit 0
-            fi
+          # Try to capture between first pair of ** ** if present, else fallback first token
+          VERSION=$(echo "$TOP_LINE" | sed -E 's/^##[[:space:]]+\*\*([^*]+)\*\*.*/\1/' )
+          if [[ -z "$VERSION" || "$VERSION" == "$TOP_LINE" ]]; then
+            VERSION=$(echo "$TOP_LINE" | awk '{print $2}' | tr -d '*')
           fi
-          
-          # New tag found
-          echo "new_tag=$LATEST_UPSTREAM" >> "$GITHUB_OUTPUT"
-          echo "New upstream tag detected: $LATEST_UPSTREAM"
+          echo "Detected upstream version: $VERSION"
 
-  trigger-build:
-    name: Trigger build for upstream tag
+          RECORDED=""
+          if [[ -f "$LAST_FILE" ]]; then
+            RECORDED=$(cat "$LAST_FILE")
+            echo "Previously recorded version: $RECORDED"
+          else
+            echo "No previously recorded version"
+          fi
+
+          EFFECTIVE_VERSION="$VERSION"
+          if [[ -n "$OVERRIDE_VERSION" ]]; then
+            EFFECTIVE_VERSION="$OVERRIDE_VERSION"
+          fi
+
+          NEW_VERSION=""
+          if [[ "$EFFECTIVE_VERSION" != "$RECORDED" ]]; then
+            NEW_VERSION="$EFFECTIVE_VERSION"
+            echo "New version detected (or override): $NEW_VERSION"
+          else
+            echo "Version unchanged"
+          fi
+
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "recorded_version=$RECORDED" >> "$GITHUB_OUTPUT"
+          echo "effective_version=$EFFECTIVE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "force_build=$FORCE_BUILD" >> "$GITHUB_OUTPUT"
+
+  build-on-change:
+    name: Trigger image build from master on CHANGELOG update
     runs-on: ubuntu-latest
-    needs: check-upstream
-    if: needs.check-upstream.outputs.new_tag != '' || needs.check-upstream.outputs.force_tag != ''
+    needs: changelog-check
+    if: needs.changelog-check.outputs.new_version != '' || needs.changelog-check.outputs.force_build == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set build parameters
-        id: params
+      - name: Record version
+        shell: bash
         run: |
-          if [[ -n "${{ needs.check-upstream.outputs.force_tag }}" ]]; then
-            XO_TAG="${{ needs.check-upstream.outputs.force_tag }}"
-            OUR_TAG="upstream-$(echo "$XO_TAG" | sed 's/xo-web-v//')"
-          else
-            XO_TAG="${{ needs.check-upstream.outputs.new_tag }}"
-            OUR_TAG="upstream-$(echo "$XO_TAG" | sed 's/xo-web-v//')"
-          fi
-          
-          echo "xo_tag=$XO_TAG" >> "$GITHUB_OUTPUT"
-          echo "our_tag=$OUR_TAG" >> "$GITHUB_OUTPUT"
-          
-          echo "Will build:"
-          echo "  Upstream XO tag: $XO_TAG"
-          echo "  Our release tag: $OUR_TAG"
-
-      - name: Update chart for upstream build
-        run: |
-          # Update Chart.yaml with upstream version info
-          XO_VERSION=$(echo "${{ steps.params.outputs.xo_tag }}" | sed 's/xo-web-v//')
-          sed -i "s/^version: .*/version: ${{ steps.params.outputs.our_tag }}/" charts/xen-orchestra-community/Chart.yaml
-          sed -i "s/^appVersion: .*/appVersion: \"$XO_VERSION\"/" charts/xen-orchestra-community/Chart.yaml
-          
+          set -euo pipefail
+          VERSION="${{ needs.changelog-check.outputs.effective_version }}"
+          echo "$VERSION" > .github/last_changelog_version
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add charts/xen-orchestra-community/Chart.yaml
-          git commit -m "build: sync with upstream ${{ steps.params.outputs.xo_tag }}"
-
-      - name: Create release tag
-        run: |
-          git tag "${{ steps.params.outputs.our_tag }}"
-          git push origin "${{ steps.params.outputs.our_tag }}"
-
-      - name: Update last built tracker
-        run: |
-          echo "${{ steps.params.outputs.xo_tag }}" > .github/last_built_upstream_tag
-          git add .github/last_built_upstream_tag
-          git commit -m "track: built upstream ${{ steps.params.outputs.xo_tag }}" || true
+          git add .github/last_changelog_version
+          git commit -m "chore: record upstream CHANGELOG version $VERSION" || echo "Nothing to commit"
           git push origin main || true
 
-      - name: Trigger image build with upstream tag
+      - name: Dispatch release-image (master)
         uses: actions/github-script@v7
         with:
           script: |
+            const version = `${{ needs.changelog-check.outputs.effective_version }}`;
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'release-image.yml',
-              ref: '${{ steps.params.outputs.our_tag }}',
+              ref: 'main',
               inputs: {
-                xo_ref: '${{ steps.params.outputs.xo_tag }}'
+                xo_ref: 'master'
               }
             });
-            console.log('Triggered image build with upstream tag: ${{ steps.params.outputs.xo_tag }}');
+            console.log(`Triggered build from master for upstream version ${version}`);
+
+      - name: Summary
+        run: |
+          echo "Triggered build for upstream CHANGELOG version: ${{ needs.changelog-check.outputs.effective_version }}" | tee -a $GITHUB_STEP_SUMMARY
