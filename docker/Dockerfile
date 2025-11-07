@@ -93,10 +93,13 @@ RUN set -eux; \
             fi; \
             echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until; \
         fi; \
-        apt-get update && apt-get install -y --no-install-recommends \
-            dumb-init openssl ca-certificates curl \
-            libfuse2t64 libvhdi-utils libxml2 python3-minimal python3-jinja2 \
-            lvm2 nfs-common netbase cifs-utils procps ntfs-3g \
+        apt-get update; \
+        # Select correct fuse runtime package depending on Debian release
+        FUSE_PKG=libfuse2; \
+        if apt-cache show libfuse2t64 >/dev/null 2>&1; then FUSE_PKG=libfuse2t64; fi; \
+        # Install only minimal, widely-available runtime deps for XO server
+        apt-get install -y --no-install-recommends \
+            dumb-init openssl ca-certificates curl "$FUSE_PKG" \
             && rm -rf /var/lib/apt/lists/*
 
 # Create app user
