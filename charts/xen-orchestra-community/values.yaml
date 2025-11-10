@@ -88,6 +88,17 @@ redis:
     size: 2Gi
     storageClass: ""
 
+# Security context defaults to make volume permissions sane
+securityContext:
+  enabled: true
+  runAsUser: 1000
+  runAsGroup: 1000
+
+podSecurityContext:
+  enabled: true
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+
 # Container health probes
 probes:
   readiness:
