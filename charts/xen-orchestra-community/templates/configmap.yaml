@@ -5,7 +5,6 @@ metadata:
 data:
   config.toml: |
     [http]
-    [[http.listen]]
     port = {{ .Values.containerPort }}
     {{- if .Values.http.hostname }}
     hostname = '{{ .Values.http.hostname }}'
@@ -40,15 +39,44 @@ data:
     {{- end }}
     {{- end }}
 
+    {{- if .Values.http.cors.enabled }}
+    [http.cors]
+    enabled = {{ .Values.http.cors.enabled }}
+    {{- if .Values.http.cors.origin }}
+    origin = '{{ .Values.http.cors.origin }}'
+    {{- end }}
+    {{- end }}
+
+    {{- if .Values.http.static.enabled }}
+    [[http.static]]
+    path = '{{ .Values.http.static.path }}'
+    dir = '{{ .Values.http.static.dir }}'
+    {{- end }}
+
+    # --- Redis wiring ---
     [redis]
     uri = "redis://{{ include "xoc.fullname" . }}-redis:{{ .Values.redis.port }}/0"
 
+    [sessions]
+    type = "redis"
+
+    [remoteMessages]
+    type = "redis"
+
+    [queues]
+    type = "redis"
+
+    [tasks]
+    type = "redis"
+    {{- if not .Values.tasks.persistLogs }}
+    persistLogs = false
+    {{- end }}
+
+    [logs]
+    {{- if .Values.logs.level }}
+    level = '{{ .Values.logs.level }}'
+    {{- end }}
     {{- if .Values.logs.syslog.enabled }}
     [logs.transport.syslog]
     target = '{{ .Values.logs.syslog.target }}'
-    {{- end }}
-
-    {{- if not .Values.tasks.persistLogs }}
-    [tasks]
-    persistLogs = false
     {{- end }}

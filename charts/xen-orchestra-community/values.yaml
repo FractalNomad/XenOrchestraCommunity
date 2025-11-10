@@ -41,7 +41,7 @@ env: []
 # XO server configuration options (rendered into config.toml)
 http:
   # Optional hostname to bind (maps to [http].hostname)
-  hostname: ""
+  hostname: "0.0.0.0"
   # If true, XO will redirect HTTP requests to HTTPS (requires HTTPS config below)
   redirectToHttps: false
   https:
@@ -56,8 +56,18 @@ http:
       domain: ""
       email: ""
       ca: "" # optional custom ACME CA URL
+  # CORS configuration
+  cors:
+    enabled: false
+    origin: "*"
+  # Static file serving for XO6
+  static:
+    enabled: true
+    path: "/v6"
+    dir: "/opt/xo/packages/web/dist"
 
 logs:
+  level: "info"
   syslog:
     enabled: false
     target: "" # e.g., "udp://syslog.example.com:514"

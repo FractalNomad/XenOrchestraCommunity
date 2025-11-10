@@ -1,11 +1,39 @@
 # Minimal XO server config for container runtime
 [http]
-
-[[http.listen]]
 port = 8080
+hostname = "0.0.0.0"
 
+# Optional: minimal CORS if you front it with another domain
+# [http.cors]
+# enabled = true
+# origin = "*"
+
+# Serve the XO6 build (from the image) at /v6
+[[http.static]]
+path = "/v6"
+dir  = "/opt/xo/packages/web/dist"
+
+# --- Redis wiring ---
 [redis]
-uri = "redis://redis:6379/0"
+# you will override this with an ENV or ConfigMap in k8s, e.g. redis://redis:6379/0
+uri = "redis://localhost:6379/0"
 
-[http.mounts]
-# XO6 preview should be available at /v6 when @xen-orchestra/web is built
+[sessions]
+# store sessions in redis
+type = "redis"
+
+[remoteMessages]
+# pub/sub across multiple replicas
+type = "redis"
+
+[queues]
+# background job queues
+type = "redis"
+
+[tasks]
+# persist tasks in redis to avoid `.put/.del` undefined errors
+type = "redis"
+
+# Optional: rate limits/log level
+[logs]
+level = "info"
