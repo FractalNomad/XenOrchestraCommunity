@@ -87,3 +87,26 @@ redis:
     enabled: false
     size: 2Gi
     storageClass: ""
+
+# Container health probes
+probes:
+  readiness:
+    enabled: true
+    path: "/"
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+  liveness:
+    enabled: true
+    path: "/"
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+  startup:
+    enabled: true
+    path: "/"
+    periodSeconds: 5
+    timeoutSeconds: 5
+    failureThreshold: 30
