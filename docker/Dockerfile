@@ -34,8 +34,13 @@ RUN yarn build || true \
 # --- Runtime ---
 FROM ${NODE_IMAGE_RUNTIME} AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends dumb-init openssl ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+RUN set -eux; \
+    apt-get update; \
+    # Select correct fuse runtime package depending on Debian release
+    FUSE_PKG=libfuse2; \
+    if apt-cache show libfuse2t64 >/dev/null 2>&1; then FUSE_PKG=libfuse2t64; fi; \
+    apt-get install -y --no-install-recommends dumb-init openssl ca-certificates "$FUSE_PKG" \
+    && rm -rf /var/lib/apt/lists/*
 
 # Non-root user
 RUN useradd -ms /bin/bash xo
