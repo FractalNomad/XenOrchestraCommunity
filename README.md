@@ -144,7 +144,7 @@ logs:
     target: "udp://syslog.example.com:514"
 
 tasks:
-  persistLogs: false  # set false to mitigate task log store errors in some upstream builds
+  persistLogs: true  # WARNING: setting false can cause XO UI delete errors due to an upstream bug
 ```
 
 See `charts/xen-orchestra-community/values.yaml` for all options.
@@ -289,6 +289,30 @@ kubectl get all -n xo
 - **CPU:** Adjust `resources.requests.cpu` based on usage
 - **Storage:** Use fast storage classes for better performance
 - **Redis:** Enable Redis persistence for production deployments
+
+### Known issue: task log deletion error
+
+If you see errors similar to:
+
+```
+xo:mixins:Tasks WARN failure on deleting task log from store {
+  error: TypeError: Cannot read properties of undefined (reading 'del')
+}
+```
+
+ensure that task log persistence is enabled. Disabling it can cause UI delete actions to fail due to upstream behavior.
+
+- Helm: set `tasks.persistLogs: true` in your values and upgrade the release.
+- Docker/Compose: either omit the `[tasks]` section or set `persistLogs = true` in `config.toml` and restart the container.
+
+Example (Helm):
+
+```bash
+helm upgrade xo xen-orchestra-community/xen-orchestra-community \
+  -n xo \
+  --reuse-values \
+  --set tasks.persistLogs=true
+```
 
 ## Acknowledgements
 
