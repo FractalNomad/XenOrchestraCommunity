@@ -63,8 +63,8 @@ logs:
     target: "" # e.g., "udp://syslog.example.com:514"
 
 tasks:
-  # Persist task logs in the store; set false to mitigate task store issues
-  persistLogs: true
+  # Persist task logs in the store; set false to mitigate task log store errors in some upstream builds
+  persistLogs: false
 
 redis:
   image: redis:7-alpine
