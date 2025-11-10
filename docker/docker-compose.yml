@@ -8,9 +8,11 @@ services:
         XO_REF: master # Override to build a specific upstream tag (e.g., xo-web-v5.51.0)
     image: xen-orchestra-community:xo6
     ports:
-      - "80:8080"
+      - "8080:80"
     environment:
       - NODE_ENV=production
+      # Healthcheck default PORT is 8080; override to match effective port in persisted config
+      - PORT=80
       # To trust a custom CA for TLS (e.g., SDN controller to hosts), uncomment:
       # - NODE_EXTRA_CA_CERTS=/home/xo/.config/xo-server/host-ca.pem
     volumes:
