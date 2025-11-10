@@ -20,7 +20,7 @@ services:
       # - ./certs/host-ca.pem:/home/xo/.config/xo-server/host-ca.pem:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "/opt/xo/docker/scripts/healthcheck.sh"]
+      test: ["CMD-SHELL", "/opt/xo/healthcheck.sh"]
       interval: 30s
       timeout: 5s
       retries: 5

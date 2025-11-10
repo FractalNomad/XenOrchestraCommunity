@@ -36,7 +36,6 @@ FROM ${NODE_IMAGE_RUNTIME} AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eux; \
     apt-get update; \
-    # Select correct fuse runtime package depending on Debian release
     FUSE_PKG=libfuse2; \
     if apt-cache show libfuse2t64 >/dev/null 2>&1; then FUSE_PKG=libfuse2t64; fi; \
     apt-get install -y --no-install-recommends dumb-init openssl ca-certificates "$FUSE_PKG" \
@@ -50,15 +49,15 @@ WORKDIR /opt/xo
 COPY --from=builder /src /opt/xo
 
 # Healthcheck & config (you can overwrite via ConfigMap in k8s)
-# (Provide these files alongside your Dockerfile)
+# Ensure target dirs exist before copying
+RUN mkdir -p /var/lib/xo-server/data /home/xo/.config/xo-server
 COPY scripts/healthcheck.sh /opt/xo/healthcheck.sh
 COPY config.toml /home/xo/.config/xo-server/config.toml
 RUN chmod +x /opt/xo/healthcheck.sh \
- && mkdir -p /var/lib/xo-server/data /home/xo/.config/xo-server \
  && chown -R xo:xo /opt/xo /var/lib/xo-server /home/xo
 
 USER xo
-EXPOSE 80
+EXPOSE 8080
 
 # Serve XO6 under /v6 via static mount configured in config.toml
 HEALTHCHECK --start-period=60s --interval=30s --timeout=5s --retries=2 CMD /opt/xo/healthcheck.sh

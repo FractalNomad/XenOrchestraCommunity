@@ -14,6 +14,14 @@ What you get:
 docker compose -f docker/docker-compose.yml build
 ```
 
+Tip: If you prefer a plain docker build, make sure the build context is the docker/ folder so file COPYs resolve correctly:
+
+```sh
+docker build -f docker/Dockerfile -t xen-orchestra-community:xo6 docker/
+```
+
+Using the repository root as the build context (e.g. a trailing dot) will cause COPY errors like "config.toml: not found" because the files live under docker/.
+
 ## Run
 
 ```sh
