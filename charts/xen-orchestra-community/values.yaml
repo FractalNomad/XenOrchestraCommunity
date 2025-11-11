@@ -4,7 +4,7 @@ image:
   pullPolicy: IfNotPresent
 
 # Port the application container listens on
-containerPort: 8080
+containerPort: 80
 
 service:
   type: ClusterIP
